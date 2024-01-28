@@ -1,10 +1,17 @@
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include "state_a.hpp"
 #include "state_b.hpp"
 #include "event.hpp"
 
-
 namespace Nikos {
+
+    class MockState : public State{
+    public:
+        MOCK_METHOD( (State *), processEvent, (Event *e), (override));
+        MOCK_METHOD( (const std::string), toStr, (), (override));
+
+    };
 
 // The fixture for testing class Foo.
     class StateTest : public testing::Test {
@@ -49,8 +56,13 @@ namespace Nikos {
         EXPECT_EQ(currState->toStr(), StateA::getInst()->toStr());
     }
 
-    int main(int argc, char **argv) {
-        testing::InitGoogleTest(&argc, argv);
-        return RUN_ALL_TESTS();
+    TEST_F(StateTest, MethodHandleMock) {
+        MockState state;
+
+        EXPECT_CALL(state, toStr())
+            .Times(1)
+            .WillOnce([](void) {return StateA::getInst()->toStr();});
+
+        EXPECT_EQ(state.toStr(), StateA::getInst()->toStr());
     }
 }

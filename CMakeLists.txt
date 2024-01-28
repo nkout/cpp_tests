@@ -32,6 +32,10 @@ Set(MyProject_SRC
         state_b.cpp
 )
 
+Set(MyProject_Test_SRC
+        state_test.cpp
+)
+
 Set(MyProject_BoostLibs
         Boost::filesystem
         Boost::program_options
@@ -49,10 +53,11 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 enable_testing()
 
 add_executable(main_test
-        main_test.cpp
+        ${MyProject_Test_SRC}
         ${MyProject_SRC}
 )
 target_link_libraries(main_test
         GTest::gtest_main
+        gmock_main
         ${MyProject_BoostLibs}
 )
