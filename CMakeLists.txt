@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(BOOST_ENABLE_CMAKE ON)
@@ -41,12 +41,16 @@ Set(MyProject_BoostLibs
         Boost::program_options
 )
 
-add_executable(main
-        main.cpp
+add_executable(main_states
+        main_states.cpp
         ${MyProject_SRC}
 )
-target_link_libraries(main PRIVATE
+target_link_libraries(main_states PRIVATE
         ${MyProject_BoostLibs}
+)
+
+add_executable(main_threads
+        main_threads.cpp
 )
 
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
