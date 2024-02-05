@@ -27,8 +27,8 @@ OneCacheLiner // occupies one cache line
     std::atomic_uint64_t y{};
     std::atomic_uint64_t z{};
     std::atomic_uint64_t o{};
-}
-        oneCacheLiner;
+};
+OneCacheLiner oneCacheLiner;
 
 struct TwoCacheLiner // occupies two cache lines
 {
@@ -36,65 +36,37 @@ struct TwoCacheLiner // occupies two cache lines
     alignas(hardware_destructive_interference_size) std::atomic_uint64_t y{};
     alignas(hardware_destructive_interference_size) std::atomic_uint64_t z{};
     alignas(hardware_destructive_interference_size) std::atomic_uint64_t o{};
-}
-        twoCacheLiner;
+};
+TwoCacheLiner twoCacheLiner;
 
 inline auto now() noexcept { return std::chrono::high_resolution_clock::now(); }
 
-template<int xy>
-void oneCacheLinerThread()
+template<int xy, typename T>
+void cacheLinerThread(T& t)
 {
     const auto start{now()};
 
     for (uint64_t count{}; count != max_write_iterations; ++count)
         if constexpr (xy == 0)
-            oneCacheLiner.x.fetch_add(1, std::memory_order_relaxed);
+            t.x.fetch_add(1, std::memory_order_relaxed);
         else if constexpr (xy == 1)
-            oneCacheLiner.y.fetch_add(1, std::memory_order_relaxed);
+            t.y.fetch_add(1, std::memory_order_relaxed);
         else if constexpr (xy == 2)
-            oneCacheLiner.z.fetch_add(1, std::memory_order_relaxed);
+            t.z.fetch_add(1, std::memory_order_relaxed);
         else if constexpr (xy == 3)
-            oneCacheLiner.o.fetch_add(1, std::memory_order_relaxed);
+            t.o.fetch_add(1, std::memory_order_relaxed);
 
     const std::chrono::duration<double, std::milli> elapsed{now() - start};
     std::lock_guard lk{cout_mutex};
-    std::cout << "oneCacheLinerThread() spent " << elapsed.count() << " ms\n";
+    std::cout << "cacheLinerThread() spent " << elapsed.count() << " ms\n";
     if constexpr (xy == 0)
-        oneCacheLiner.x = elapsed.count();
+        t.x = elapsed.count();
     else if constexpr (xy == 1)
-        oneCacheLiner.y = elapsed.count();
+        t.y = elapsed.count();
     else if constexpr (xy == 2)
-        oneCacheLiner.z = elapsed.count();
+        t.z = elapsed.count();
     else if constexpr (xy == 3)
-        oneCacheLiner.o = elapsed.count();
-}
-
-template<int xy>
-void twoCacheLinerThread()
-{
-    const auto start{now()};
-
-    for (uint64_t count{}; count != max_write_iterations; ++count)
-        if constexpr (xy == 0)
-            twoCacheLiner.x.fetch_add(1, std::memory_order_relaxed);
-        else if constexpr (xy == 1)
-            twoCacheLiner.y.fetch_add(1, std::memory_order_relaxed);
-        else if constexpr (xy == 2)
-            twoCacheLiner.z.fetch_add(1, std::memory_order_relaxed);
-        else if constexpr (xy == 3)
-            twoCacheLiner.o.fetch_add(1, std::memory_order_relaxed);
-
-    const std::chrono::duration<double, std::milli> elapsed{now() - start};
-    std::lock_guard lk{cout_mutex};
-    std::cout << "twoCacheLinerThread() spent " << elapsed.count() << " ms\n";
-    if constexpr (xy == 0)
-        twoCacheLiner.x = elapsed.count();
-    else if constexpr (xy == 1)
-        twoCacheLiner.y = elapsed.count();
-    else if constexpr (xy == 2)
-        twoCacheLiner.z = elapsed.count();
-    else if constexpr (xy == 3)
-        twoCacheLiner.o = elapsed.count();
+        t.o = elapsed.count();
 }
 
 int main()
@@ -120,10 +92,10 @@ int main()
     int oneCacheLiner_average{0};
     for (auto i{0}; i != max_runs; ++i)
     {
-        std::thread th1{oneCacheLinerThread<0>};
-        std::thread th2{oneCacheLinerThread<1>};
-        std::thread th3{oneCacheLinerThread<2>};
-        std::thread th4{oneCacheLinerThread<3>};
+        std::thread th1{cacheLinerThread<0,OneCacheLiner>,std::ref(oneCacheLiner)};
+        std::thread th2{cacheLinerThread<1,OneCacheLiner>,std::ref(oneCacheLiner)};
+        std::thread th3{cacheLinerThread<2,OneCacheLiner>,std::ref(oneCacheLiner)};
+        std::thread th4{cacheLinerThread<3,OneCacheLiner>,std::ref(oneCacheLiner)};
         th1.join();
         th2.join();
         th3.join();
@@ -137,10 +109,10 @@ int main()
     int twoCacheLiner_average{0};
     for (auto i{0}; i != max_runs; ++i)
     {
-        std::thread th1{twoCacheLinerThread<0>};
-        std::thread th2{twoCacheLinerThread<1>};
-        std::thread th3{twoCacheLinerThread<2>};
-        std::thread th4{twoCacheLinerThread<3>};
+        std::thread th1{cacheLinerThread<0,TwoCacheLiner>,std::ref(twoCacheLiner)};
+        std::thread th2{cacheLinerThread<1,TwoCacheLiner>,std::ref(twoCacheLiner)};
+        std::thread th3{cacheLinerThread<2,TwoCacheLiner>,std::ref(twoCacheLiner)};
+        std::thread th4{cacheLinerThread<3,TwoCacheLiner>,std::ref(twoCacheLiner)};
         th1.join();
         th2.join();
         th3.join();
