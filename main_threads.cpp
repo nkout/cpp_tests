@@ -28,7 +28,6 @@ OneCacheLiner // occupies one cache line
     std::atomic_uint64_t z{};
     std::atomic_uint64_t o{};
 };
-OneCacheLiner oneCacheLiner;
 
 struct TwoCacheLiner // occupies two cache lines
 {
@@ -37,35 +36,56 @@ struct TwoCacheLiner // occupies two cache lines
     alignas(hardware_destructive_interference_size) std::atomic_uint64_t z{};
     alignas(hardware_destructive_interference_size) std::atomic_uint64_t o{};
 };
-TwoCacheLiner twoCacheLiner;
 
 inline auto now() noexcept { return std::chrono::high_resolution_clock::now(); }
 
-template<int xy, typename T>
+template<int field_idx, typename T>
 void cacheLinerThread(T& t)
 {
     const auto start{now()};
+    uint64_t value;
 
-    for (uint64_t count{}; count != max_write_iterations; ++count)
-        if constexpr (xy == 0)
-            t.x.fetch_add(1, std::memory_order_relaxed);
-        else if constexpr (xy == 1)
-            t.y.fetch_add(1, std::memory_order_relaxed);
-        else if constexpr (xy == 2)
-            t.z.fetch_add(1, std::memory_order_relaxed);
-        else if constexpr (xy == 3)
-            t.o.fetch_add(1, std::memory_order_relaxed);
+    for (uint64_t count = 1; count <= max_write_iterations; ++count) {
+        if constexpr (field_idx == 0)
+            value = t.x.fetch_add(1, std::memory_order_relaxed);
+        else if constexpr (field_idx == 1)
+            value = t.y.fetch_add(1, std::memory_order_relaxed);
+        else if constexpr (field_idx == 2)
+            value = t.z.fetch_add(1, std::memory_order_relaxed);
+        else if constexpr (field_idx == 3)
+            value = t.o.fetch_add(1, std::memory_order_relaxed);
+
+        if (value != (count -1))
+        {
+            std::cout << "value " << value << std::endl;
+        }
+    }
+
+    if constexpr (field_idx == 0)
+        value = t.x.load(std::memory_order_acquire);
+    else if constexpr (field_idx == 1)
+        value = t.y.load(std::memory_order_acquire);
+    else if constexpr (field_idx == 2)
+        value = t.z.load(std::memory_order_acquire);
+    else if constexpr (field_idx == 3)
+        value = t.o.load(std::memory_order_acquire);
+
+    if (value != max_write_iterations)
+    {
+        std::cout << "value " << value << std::endl;
+    }
 
     const std::chrono::duration<double, std::milli> elapsed{now() - start};
     std::lock_guard lk{cout_mutex};
     std::cout << "cacheLinerThread() spent " << elapsed.count() << " ms\n";
-    if constexpr (xy == 0)
+
+    if constexpr (field_idx == 0)
         t.x = elapsed.count();
-    else if constexpr (xy == 1)
+    else if constexpr (field_idx == 1)
         t.y = elapsed.count();
-    else if constexpr (xy == 2)
+    else if constexpr (field_idx == 2)
         t.z = elapsed.count();
-    else if constexpr (xy == 3)
+    else if constexpr (field_idx == 3)
         t.o = elapsed.count();
 }
 
@@ -88,10 +108,12 @@ int main()
               << "sizeof( TwoCacheLiner ) == " << sizeof(TwoCacheLiner) << "\n\n";
 
     constexpr int max_runs{4};
-
     int oneCacheLiner_average{0};
+    int twoCacheLiner_average{0};
+
     for (auto i{0}; i != max_runs; ++i)
     {
+        OneCacheLiner oneCacheLiner{};
         std::thread th1{cacheLinerThread<0,OneCacheLiner>,std::ref(oneCacheLiner)};
         std::thread th2{cacheLinerThread<1,OneCacheLiner>,std::ref(oneCacheLiner)};
         std::thread th3{cacheLinerThread<2,OneCacheLiner>,std::ref(oneCacheLiner)};
@@ -106,9 +128,9 @@ int main()
     std::cout << "Average T1 time: "
               << (oneCacheLiner_average / max_runs / 4) << " ms\n\n";
 
-    int twoCacheLiner_average{0};
     for (auto i{0}; i != max_runs; ++i)
     {
+        TwoCacheLiner twoCacheLiner{};
         std::thread th1{cacheLinerThread<0,TwoCacheLiner>,std::ref(twoCacheLiner)};
         std::thread th2{cacheLinerThread<1,TwoCacheLiner>,std::ref(twoCacheLiner)};
         std::thread th3{cacheLinerThread<2,TwoCacheLiner>,std::ref(twoCacheLiner)};
