@@ -65,3 +65,6 @@ target_link_libraries(main_test
         gmock_main
         ${MyProject_BoostLibs}
 )
+add_executable(main_ring_buff main_ring_buffer.cpp
+        mutex_ring_buffer.cpp
+        atomic_ring_buffer.cpp)
